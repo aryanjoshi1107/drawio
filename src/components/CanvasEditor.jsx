@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { Canvas, Rect, Circle, Textbox, PencilBrush } from "fabric";
-import { db, doc, setDoc, getDoc } from "../firebase";
+import { getFirestore,doc, setDoc, getDoc } from "firebase/firestore";
+import {db} from "../firebase";
+
 
 const CanvasEditor = () => {
   const { id } = useParams();
@@ -75,14 +77,64 @@ const CanvasEditor = () => {
     setCanvas(c);
 
     // Snap to grid
-    c.on("object:moving", (e) => {
-      const grid = 10;
-      const obj = e.target;
-      obj.set({
-        left: Math.round(obj.left / grid) * grid,
-        top: Math.round(obj.top / grid) * grid,
-      });
-    });
+    // Snap to grid when moving
+c.on("object:moving", (e) => {
+  const grid = 10;
+  const obj = e.target;
+
+  obj.set({
+    left: Math.round(obj.left / grid) * grid,
+    top: Math.round(obj.top / grid) * grid,
+  });
+
+  obj.setCoords(); // keep bounding box updated
+}); 
+
+
+
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Delete" || e.key === "Backspace") {
+    const activeObj = c.getActiveObject();
+    if (!activeObj) return;
+
+    if (activeObj.type === "activeSelection") {
+      // Convert activeSelection into individual objects
+      const objs = activeObj.getObjects();
+      objs.forEach((obj) => c.remove(obj));
+    } else {
+      // Single object
+      c.remove(activeObj);
+    }
+
+    c.discardActiveObject();
+    c.requestRenderAll();
+  }
+});
+
+
+// Save as PNG
+document.getElementById("saveBtn").addEventListener("click", () => {
+  // Ensure canvas is rendered
+  c.renderAll();
+  console.log(c.toDataURL());
+  const dataURL = c.toDataURL({
+    format: "png",
+    quality: 1,
+    multiplier: 2
+  });
+
+  // Create a download link
+  const link = document.createElement("a");
+  link.href = dataURL;
+  link.download = "canvas.png";
+  link.click();
+});
+
+
+
+
+
 
     // Initialize history with empty canvas state
     const initialState = JSON.stringify(c.toJSON());
@@ -94,6 +146,7 @@ const CanvasEditor = () => {
     const loadCanvas = async () => {
       try {
         isLoadingRef.current = true;
+        console.log("id is ",id);
         const docRef = doc(db, "canvases", id);
         const snapshot = await getDoc(docRef);
         
@@ -121,15 +174,26 @@ const CanvasEditor = () => {
     
     loadCanvas();
 
-    // Auto-save to Firestore every 2 seconds
     const saveCanvas = async () => {
       if (isLoadingRef.current) return;
+
+      const canvasId = id;
+      const canvasData = c?.toJSON?.();
+
+      if (!canvasId || !canvasData) {
+        console.warn("Missing canvas ID or data");
+        return;
+      }
+
       try {
-        await setDoc(doc(db, "canvases", id), { json: c.toJSON() });
+        await setDoc(doc(db, "canvases", canvasId), { json: canvasData });
+        console.log("Canvas saved:", canvasId);
       } catch (err) {
         console.error("Error saving canvas:", err);
       }
     };
+
+    // Start autosave
     const interval = setInterval(saveCanvas, 2000);
 
     return () => {
@@ -154,7 +218,9 @@ const CanvasEditor = () => {
     const rect = new Rect({
       width: 100,
       height: 100,
-      fill: "red",
+      fill: "transparent", // no fill
+      stroke: "black",       // border color
+      strokeWidth: 3,       // border thickness
       left: 50,
       top: 50,
     });
@@ -172,9 +238,11 @@ const CanvasEditor = () => {
     if (!canvas) return;
     disablePenMode();
     
-    const circle = new Circle({
+   const circle = new Circle({
       radius: 50,
-      fill: "blue",
+      fill: "transparent", // no fill
+      stroke: "black",       // border color
+      strokeWidth: 3,       // border thickness
       left: 150,
       top: 150,
     });
@@ -414,7 +482,7 @@ const CanvasEditor = () => {
           Clear
         </button>
         <button onClick={shareLink}>Share Canvas</button>
-        
+        <button id="saveBtn">Save as PNG</button>
         {/* Debug info - remove this in production */}
         <span style={{ marginLeft: "20px", fontSize: "12px", color: "#666" }}>
           History: {historyRef.current.length} states, Index: {historyIndexRef.current}

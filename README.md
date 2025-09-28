@@ -1,16 +1,70 @@
-# React + Vite
+# 🖊️ Draw.io
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern web-based drawing application built with **React**, **Fabric.js**, and **Firebase**.  
+It supports:
+- Drawing with a **Pen tool**
+- Adding **shapes** (rectangles, circles, lines, etc.)
+- Managing a **Snap object** for snapping elements to a grid
+- **Autosave** to Firebase Firestore every few seconds
+- Full **Undo/Redo** history management
+- easy canvas sharing
+- Easy deployment (e.g., Vercel, Netlify, Firebase Hosting)
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Live Demo
+<div align="center">
+  <!-- Replace the URL below with your deployed hosting link -->
+  <a href="https://drawio-a622c.web.app" target="_blank">
+    👉 **Open the Live App Here**
+  </a>
+</div>
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 📐 Features
+### 🖍️ Drawing Tools
+- **Pen Tool** – free-hand drawing on the canvas
+- **Shape Tools** – add rectangles, circles, lines, polygons, etc.
+- **Snap Object** – optional snapping to a grid or guides for precise alignment
 
-## Expanding the ESLint configuration
+### 📜 State Management
+- Maintains **undo/redo history** using a stack approach:
+  - Saves a snapshot after every change
+  - Allows unlimited undo/redo (limited to last 50 actions for performance)
+- **Autosave to Firebase Firestore**
+  - Every few seconds, the latest canvas snapshot is stored in Firestore
+  - Uses `JSON.stringify` to store complex Fabric.js data (avoids nested array issues)
+- Canvas is **restored from Firestore** on reload so users never lose their work
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+### 🔗 Canvas Sharing & Collaboration
+- Every new canvas gets a **unique Canvas ID** stored in Firestore.
+- The app generates a **shareable URL** such as:
+- By sharing this link, **other users can open the exact same canvas**.
+- **Mutual Collaboration:**  
+- All participants who open the same link will load the same canvas data.
+- With Firestore’s real-time listeners, any changes (like drawing, adding shapes, or using the pen tool) can be broadcast to all connected users.
+- This feature enables **real-time collaborative drawing**, similar to Google Jamboard or draw.io.
+
+> ⚡️ Coming soon: Role-based permissions (e.g., view-only vs. edit) to better manage shared sessions.
+
+
+### 🔄 Undo/Redo
+- Simple buttons or keyboard shortcuts
+- History stored as JSON snapshots
+- Undo/Redo navigation updates both the canvas and UI buttons
+
+---
+
+## 🛠️ Tech Stack
+| Technology     | Purpose                         |
+|----------------|---------------------------------|
+| React + Vite / CRA | Frontend UI                 |
+| Fabric.js      | Canvas rendering & drawing tools|
+| Firebase Firestore | Cloud database & autosave  |
+| Firebase Emulator | Local testing of Firestore   |
+| Snap Object    | Snapping and alignment of shapes|
+
+---

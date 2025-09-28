@@ -120,30 +120,41 @@ document.addEventListener("keydown", (e) => {
     historyIndexRef.current = 0;
     updateHistoryButtons();
 
+
+
     // Load canvas from Firestore
-    const loadCanvas = async () => {
-      try {
-        isLoadingRef.current = true;
-        const docRef = doc(db, "canvases", id);
-        const snapshot = await getDoc(docRef);
-        
-        if (snapshot.exists()) {
-          await new Promise((resolve) => {
-            c.loadFromJSON(snapshot.data().json, () => {
-             
-              setTimeout(() => {
-                c.requestRenderAll();
-              }, 0);
-              resolve();
-            });
-          });
-          
-          
-          // Reset history after loading
-          const loadedState = JSON.stringify(c.toJSON());
-          historyRef.current = [loadedState];
-          historyIndexRef.current = 0;
-          updateHistoryButtons();
+  const loadCanvas = async () => {
+  try{
+    isLoadingRef.current = true;
+
+    console.log("Loading canvas with ID:", id);
+    
+    const docRef = doc(db, "canvases", id);
+    const snapshot = await getDoc(docRef);
+
+    if (snapshot.exists()) {
+      // 🔑 Parse the stored JSON string back into an object
+      const savedData = JSON.parse(snapshot.data().json);
+
+      await new Promise((resolve) => {
+        c.loadFromJSON(savedData, () => {
+          // Ensure canvas fully renders after loading
+          setTimeout(() => {
+            c.requestRenderAll();
+          }, 0);
+          resolve();
+        });
+      });
+
+      // 🔑 Reset history after loading
+      const loadedState = JSON.stringify(c.toJSON());
+      historyRef.current = [loadedState];
+      historyIndexRef.current = 0;
+
+      updateHistoryButtons();
+          console.log("Canvas loaded successfully");
+        } else {
+          console.warn("No canvas data found for this ID");
         }
       } catch (err) {
         console.error("Error loading canvas:", err);
@@ -151,8 +162,10 @@ document.addEventListener("keydown", (e) => {
         isLoadingRef.current = false;
       }
     };
-    
-    loadCanvas();
+
+// Call the function to load the canvas
+loadCanvas();
+
 
   
     //save canvas in firstore database
@@ -161,14 +174,14 @@ document.addEventListener("keydown", (e) => {
 
       const canvasId = id;
       const canvasData = c?.toJSON?.();
-
+      console.log("Autosaving canvas data:", canvasData);
       if (!canvasId || !canvasData) {
         console.warn("Missing canvas ID or data");
         return;
       }
 
       try {
-        await setDoc(doc(db, "canvases", canvasId), { json: canvasData });
+        await setDoc(doc(db, "canvases", canvasId), { json: JSON.stringify(canvasData) });
         console.log("Canvas saved:", canvasId);
       } catch (err) {
         console.error("Error saving canvas:", err);

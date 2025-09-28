@@ -4,7 +4,9 @@ import { Canvas, Rect, Circle, Textbox, PencilBrush } from "fabric";
 import { getFirestore,doc, setDoc, getDoc } from "firebase/firestore";
 import {db} from "../firebase";
 import { clearCanvas } from "./CanvasTools/clearcanvas";
-
+import { saveCanvas } from "./CanvasTools/saveCanvas";
+import { addRectangle,addCircle,addText,usepen } from "./CanvasTools/inputTools";
+import { undo, redo } from "./CanvasTools/canvashistory";
 const CanvasEditor = () => {
   const { id } = useParams();
   const canvasRef = useRef(null);
@@ -112,30 +114,6 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-
-// Save as PNG
-document.getElementById("saveBtn").addEventListener("click", () => {
-  // Ensure canvas is rendered
-  c.renderAll();
-  console.log(c.toDataURL());
-  const dataURL = c.toDataURL({
-    format: "png",
-    quality: 1,
-    multiplier: 2
-  });
-
-  // Create a download link
-  const link = document.createElement("a");
-  link.href = dataURL;
-  link.download = "canvas.png";
-  link.click();
-});
-
-
-
-
-
-
     // Initialize history with empty canvas state
     const initialState = JSON.stringify(c.toJSON());
     historyRef.current = [initialState];
@@ -177,7 +155,7 @@ document.getElementById("saveBtn").addEventListener("click", () => {
     loadCanvas();
 
   
-
+    //save canvas in firstore database
     const saveCanvas = async () => {
       if (isLoadingRef.current) return;
 
@@ -214,167 +192,42 @@ document.getElementById("saveBtn").addEventListener("click", () => {
     }
   }, [canvas, isPenActive]);
 
-  // Tool Functions - Now explicitly save state after adding objects
-  const addRect = useCallback(() => {
-    if (!canvas) return;
-    disablePenMode();
-    
-    const rect = new Rect({
-      width: 100,
-      height: 100,
-      fill: "transparent", // no fill
-      stroke: "black",       // border color
-      strokeWidth: 3,       // border thickness
-      left: 50,
-      top: 50,
-    });
-    canvas.add(rect);
-    canvas.setActiveObject(rect);
-    canvas.renderAll();
-    
-    // Explicitly save state after adding
-    setTimeout(() => {
-      saveState(canvas);
-    }, 50);
-  }, [canvas, disablePenMode, saveState]);
 
-  const addCircle = useCallback(() => {
-    if (!canvas) return;
-    disablePenMode();
-    
-   const circle = new Circle({
-      radius: 50,
-      fill: "transparent", // no fill
-      stroke: "black",       // border color
-      strokeWidth: 3,       // border thickness
-      left: 150,
-      top: 150,
-    });
-    canvas.add(circle);
-    canvas.setActiveObject(circle);
-    canvas.renderAll();
-    
-    // Explicitly save state after adding
-    setTimeout(() => {
-      saveState(canvas);
-    }, 50);
-  }, [canvas, disablePenMode, saveState]);
 
-  const addText = useCallback(() => {
-    if (!canvas) return;
-    disablePenMode();
-    
-    const text = new Textbox("Hello", {
-      left: 200,
-      top: 200,
-      fontSize: 24,
-      fill: "black",
-    });
-    canvas.add(text);
-    canvas.setActiveObject(text);
-    canvas.renderAll();
-    
-    // Explicitly save state after adding
-    setTimeout(() => {
-      saveState(canvas);
-    }, 50);
-  }, [canvas, disablePenMode, saveState]);
 
-  const usePen = useCallback(() => {
-    if (!canvas) return;
-    
-    if (!isPenActive) {
-      canvas.isDrawingMode = true;
-      canvas.freeDrawingBrush = new PencilBrush(canvas);
-      canvas.freeDrawingBrush.color = "black";
-      canvas.freeDrawingBrush.width = 2;
-      setIsPenActive(true);
-      
-      // Add listener for when path is created
-      const pathCreatedHandler = () => {
-        setTimeout(() => {
-          saveState(canvas);
-        }, 50);
-      };
-      
-      canvas.on('path:created', pathCreatedHandler);
-      
-      // Store handler to remove later
-      canvas.__pathCreatedHandler = pathCreatedHandler;
-    } else {
-      canvas.isDrawingMode = false;
-      setIsPenActive(false);
-      
-      // Remove the path created handler
-      if (canvas.__pathCreatedHandler) {
-        canvas.off('path:created', canvas.__pathCreatedHandler);
-        delete canvas.__pathCreatedHandler;
-      }
-    }
-  }, [canvas, isPenActive, saveState]);
-
-  const undo = useCallback(() => {
-    if (!canvas || historyIndexRef.current <= 0) {
-      console.log('Cannot undo. Index:', historyIndexRef.current);
-      return;
-    }
-
-    disablePenMode();
-    isUndoRedoRef.current = true;
-
-    try {
-      historyIndexRef.current -= 1;
-      updateHistoryButtons(); // Ensure button state updates immediately
-      const state = historyRef.current[historyIndexRef.current];
-
-      console.log('Undoing to index:', historyIndexRef.current);
-
-      canvas.loadFromJSON(JSON.parse(state), () => {
-        canvas.backgroundColor = "#ffffff";
-        setTimeout(() => {
-          canvas.requestRenderAll();
-        }, 0);
-        isUndoRedoRef.current = false;
-      });
-    } catch (error) {
-      console.error("Error during undo:", error);
-      isUndoRedoRef.current = false;
-    }
-  }, [canvas, disablePenMode, updateHistoryButtons]);
-
-  const redo = useCallback(() => {
-    if (!canvas || historyIndexRef.current >= historyRef.current.length - 1) {
-      console.log('Cannot redo. Index:', historyIndexRef.current, 'Length:', historyRef.current.length);
-      return;
-    }
-
-    disablePenMode();
-    isUndoRedoRef.current = true;
-
-    try {
-      historyIndexRef.current += 1;
-      updateHistoryButtons(); // Ensure button state updates immediately
-      const state = historyRef.current[historyIndexRef.current];
-
-      console.log('Redoing to index:', historyIndexRef.current);
-
-      canvas.loadFromJSON(JSON.parse(state), () => {
-        canvas.backgroundColor = "#ffffff";
-        setTimeout(() => {
-          canvas.requestRenderAll();
-        }, 0);
-        isUndoRedoRef.current = false;
-      });
-    } catch (error) {
-      console.error("Error during redo:", error);
-      isUndoRedoRef.current = false;
-    }
-  }, [canvas, disablePenMode, updateHistoryButtons]);
-
+  const undoTool =() => {
+    if(!canvas) return;
+    undo(canvas,disablePenMode,historyIndexRef,historyRef,isUndoRedoRef,updateHistoryButtons);
+  }
+  const redoTool =() => {
+    if(!canvas) return;
+    redo(canvas,disablePenMode,historyIndexRef,historyRef,isUndoRedoRef,updateHistoryButtons);
+  }
+  //all canvas button logic
   const clearCanvastool =() => {
     if(!canvas) return;
     clearCanvas(canvas,disablePenMode,saveState);
   }
+  const saveCanvastool =() => {
+    if(!canvas) return;
+    saveCanvas(canvas,disablePenMode,saveState);
+  }
+  const addRecttool =() => {
+    if(!canvas) return;
+    addRectangle(canvas,disablePenMode,saveState);
+  }
+  const addCircletool =() => {
+    if(!canvas) return;
+    addCircle(canvas,disablePenMode,saveState);
+  }
+  const addTexttool =() => {
+    if(!canvas) return;
+    addText(canvas,disablePenMode,saveState);
+  }
+  const addpentool=() => {
+    if(!canvas) return;
+    usepen(canvas,saveState,setIsPenActive,isPenActive);
+  } 
   
 
   const shareLink = useCallback(() => {
@@ -429,20 +282,21 @@ document.getElementById("saveBtn").addEventListener("click", () => {
   
 
 
+
   return (
     <div style={{ padding: "20px" }}>
       <div style={{ marginBottom: "10px" }}>
-        <button onClick={addRect} style={{ marginRight: "5px" }}>
+        <button onClick={addRecttool} style={{ marginRight: "5px" }}>
           Add Rectangle
         </button>
-        <button onClick={addCircle} style={{ marginRight: "5px" }}>
+        <button onClick={addCircletool} style={{ marginRight: "5px" }}>
           Add Circle
         </button>
-        <button onClick={addText} style={{ marginRight: "5px" }}>
+        <button onClick={addTexttool} style={{ marginRight: "5px" }}>
           Add Text
         </button>
         <button
-          onClick={usePen}
+          onClick={addpentool}
           style={{
             marginRight: "5px",
             border: isPenActive ? "2px solid #007bff" : "1px solid #ccc",
@@ -452,7 +306,7 @@ document.getElementById("saveBtn").addEventListener("click", () => {
           {isPenActive ? "Exit Pen" : "Pen Tool"}
         </button>
         <button 
-          onClick={undo} 
+          onClick={undoTool} 
           style={{ 
             marginRight: "5px",
             opacity: canUndo ? 1 : 0.5,
@@ -464,7 +318,7 @@ document.getElementById("saveBtn").addEventListener("click", () => {
           Undo (Ctrl+Z)
         </button>
         <button 
-          onClick={redo} 
+          onClick={redoTool} 
           style={{ 
             marginRight: "5px",
             opacity: canRedo ? 1 : 0.5,
@@ -479,7 +333,7 @@ document.getElementById("saveBtn").addEventListener("click", () => {
           Clear
         </button>
         <button onClick={shareLink}>Share Canvas</button>
-        <button id="saveBtn">Save as PNG</button>
+        <button onClick={saveCanvastool}>Save as PNG</button>
         {/* Debug info - remove this in production */}
         <span style={{ marginLeft: "20px", fontSize: "12px", color: "#666" }}>
           History: {historyRef.current.length} states, Index: {historyIndexRef.current}

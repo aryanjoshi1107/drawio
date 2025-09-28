@@ -2,7 +2,6 @@
 export const clearCanvas = (canvas, disablePenMode, saveState) => {
   if (!canvas) return;
   disablePenMode();
-
   canvas.clear();
   canvas.backgroundColor = "#ffffff";
   canvas.renderAll();

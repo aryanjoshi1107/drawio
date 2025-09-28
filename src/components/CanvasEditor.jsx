@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { Canvas, Rect, Circle, Textbox, PencilBrush } from "fabric";
 import { getFirestore,doc, setDoc, getDoc } from "firebase/firestore";
 import {db} from "../firebase";
-
+import { clearCanvas } from "./CanvasTools/clearcanvas";
 
 const CanvasEditor = () => {
   const { id } = useParams();
@@ -146,18 +146,20 @@ document.getElementById("saveBtn").addEventListener("click", () => {
     const loadCanvas = async () => {
       try {
         isLoadingRef.current = true;
-        console.log("id is ",id);
         const docRef = doc(db, "canvases", id);
         const snapshot = await getDoc(docRef);
         
         if (snapshot.exists()) {
           await new Promise((resolve) => {
             c.loadFromJSON(snapshot.data().json, () => {
-              c.backgroundColor = "#ffffff";
-              c.renderAll();
+             
+              setTimeout(() => {
+                c.requestRenderAll();
+              }, 0);
               resolve();
             });
           });
+          
           
           // Reset history after loading
           const loadedState = JSON.stringify(c.toJSON());
@@ -173,6 +175,8 @@ document.getElementById("saveBtn").addEventListener("click", () => {
     };
     
     loadCanvas();
+
+  
 
     const saveCanvas = async () => {
       if (isLoadingRef.current) return;
@@ -327,7 +331,6 @@ document.getElementById("saveBtn").addEventListener("click", () => {
 
       canvas.loadFromJSON(JSON.parse(state), () => {
         canvas.backgroundColor = "#ffffff";
-        canvas.renderAll();
         setTimeout(() => {
           canvas.requestRenderAll();
         }, 0);
@@ -357,7 +360,6 @@ document.getElementById("saveBtn").addEventListener("click", () => {
 
       canvas.loadFromJSON(JSON.parse(state), () => {
         canvas.backgroundColor = "#ffffff";
-        canvas.renderAll();
         setTimeout(() => {
           canvas.requestRenderAll();
         }, 0);
@@ -369,19 +371,11 @@ document.getElementById("saveBtn").addEventListener("click", () => {
     }
   }, [canvas, disablePenMode, updateHistoryButtons]);
 
-  const clearCanvas = useCallback(() => {
-    if (!canvas) return;
-    disablePenMode();
-    
-    canvas.clear();
-    canvas.backgroundColor = "#ffffff";
-    canvas.renderAll();
-    
-    // Save state after clearing
-    setTimeout(() => {
-      saveState(canvas);
-    }, 50);
-  }, [canvas, disablePenMode, saveState]);
+  const clearCanvastool =() => {
+    if(!canvas) return;
+    clearCanvas(canvas,disablePenMode,saveState);
+  }
+  
 
   const shareLink = useCallback(() => {
     navigator.clipboard.writeText(window.location.href);
@@ -432,6 +426,9 @@ document.getElementById("saveBtn").addEventListener("click", () => {
     };
   }, [canvas, saveState]);
 
+  
+
+
   return (
     <div style={{ padding: "20px" }}>
       <div style={{ marginBottom: "10px" }}>
@@ -478,7 +475,7 @@ document.getElementById("saveBtn").addEventListener("click", () => {
         >
           Redo (Ctrl+Y)
         </button>
-        <button onClick={clearCanvas} style={{ marginRight: "5px" }}>
+        <button onClick={clearCanvastool} style={{ marginRight: "5px" }}>
           Clear
         </button>
         <button onClick={shareLink}>Share Canvas</button>
